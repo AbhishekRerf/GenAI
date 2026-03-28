@@ -1,1 +1,15 @@
-# Azure OpenAI Fix Complete ✅\n\n## Completed:\n### 1. [✅] Updated utils/llm_providers.py\n   - Now uses `AZURE_OPENAI_DEPLOYMENT_NAME` from .env (fallback: gpt-35-turbo)\n\n## Next User Steps:\n### 2. Add to .env:\n   ```\n   AZURE_OPENAI_DEPLOYMENT_NAME=your_actual_deployment_name  # e.g., gpt-35-turbo\n   ```\n   Get name from Azure Portal > Your resource > Model deployments.\n\n### 3. Test:\n   ```bash\n   python test_timing.py\n   # or\n   uvicorn main:app --reload\n   ```\n\n### 4. Verify:\n   ```bash\n   curl http://localhost:8000/health\n   ```\n\nError fixed! Deployment now configurable.
+# Fix Azure Unable to Read Chunked Data
+RAG chunks concatenated to large prompts → Azure token limit errors.
+
+## Steps:
+1. [x] Update requirements.txt + install tiktoken ✓
+2. [x] Edit utils/llm_providers.py: Configurable model/version, pre-API token check/print, detailed errors/logging ✓
+3. [x] Edit utils/rag_pipeline.py: Increased context limit to 6000 chars + token param, added logging, fixed max_tokens ✓
+4. [x] utils/llm.py already supports max_tokens ✓
+5. [x] Installed deps ✓
+6. [ ] Test: uvicorn main:app --reload, check /health, run RAG query.
+7. [ ] Verify: Logs show token counts, no Azure errors.
+8. [ ] [Complete]
+
+**Progress:** Plan approved. Starting step 1.
+

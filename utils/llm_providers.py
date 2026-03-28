@@ -14,7 +14,7 @@ class AzureOpenAIProvider:
                 azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
             )
 
-            self.deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-35-turbo")
+            self.deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
             self.name = "Azure OpenAI"
 
         except Exception as e:
@@ -52,4 +52,4 @@ class AzureOpenAIProvider:
             return response.choices[0].message.content
 
         except Exception as e:
-            return f"Azure Error: {str(e)}" 
+            return f"Azure Error: {str(e)}"

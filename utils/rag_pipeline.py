@@ -5,7 +5,7 @@ Main orchestration for Retrieval Augmented Generation
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from utils.chunked_search import ChunkedVectorSearch
-from utils.llm_providers import AzureOpenAIProvider, LLMProvider
+from utils.llm_providers import AzureOpenAIProvider
 
 
 class RAGPipeline:
@@ -48,7 +48,8 @@ class RAGPipeline:
     def _format_chunks_for_context(
         self,
         chunks: List[Dict[str, Any]],
-        max_context_length: int = 2000
+        max_context_length: int = 6000,  # Increased for more context
+        max_tokens: int = 10000  # Token limit
     ) -> str:
         """
         Format retrieved chunks into readable context
@@ -151,6 +152,7 @@ USER QUERY: {query}
         
         # Format context
         context = self._format_chunks_for_context(all_chunks)
+        print(f"RAG context length: {len(context)} chars")
         
         # Build system prompt
         system_message = self._build_system_prompt(query, context)
@@ -208,7 +210,8 @@ USER QUERY: {query}
         response = self.llm_provider.generate(
             prompt=user_prompt,
             system_message=system_message,
-            temperature=temperature
+            temperature=temperature,
+            max_tokens=2048  # Fixed for Azure stability
         )
         
         elapsed = (datetime.now() - start_time).total_seconds()

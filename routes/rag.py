@@ -46,7 +46,7 @@ class RAGResponse(BaseModel):
     context: Optional[dict] = None
 
 
-@router.post("/query", response_model=dict)
+@router.get("/query", response_model=dict)
 async def rag_query(
     query: str = Query(..., min_length=1, description="Your question"),
     collection_type: str = Query("all", description="Collection to search: 'resources', 'projects', 'assignments', or 'all'"),
