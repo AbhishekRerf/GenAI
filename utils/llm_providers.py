@@ -24,7 +24,7 @@ class AzureOpenAIProvider:
     def is_available(self):
         return self.client is not None
 
-    def generate(self, prompt, system_message=None, temperature=0.7, max_tokens=1000):
+    def generate(self, prompt, system_message=None, temperature=0.7, max_tokens=4096):
         if not self.client:
             return "Azure client not initialized"
 
@@ -46,10 +46,16 @@ class AzureOpenAIProvider:
                 model=self.deployment_name,
                 messages=messages,
                 temperature=temperature,
-                max_tokens=max_tokens
+                max_tokens=4096,  # Increased for full data
+                response_format={"type": "json_object"}
             )
 
-            return response.choices[0].message.content
+            try:
+                import json
+                return json.loads(response.choices[0].message.content)
+            except (json.JSONDecodeError, KeyError):
+                # Fallback to plain text if JSON fails
+                return {"error": "Non-JSON response", "raw": response.choices[0].message.content}
 
         except Exception as e:
             return f"Azure Error: {str(e)}"

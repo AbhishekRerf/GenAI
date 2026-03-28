@@ -19,42 +19,62 @@ def get_llm_provider():
             _provider = None
     return _provider
 
-def generate_answer(query: str, context: str) -> str:
+def generate_answer(query: str, context: str) -> dict:
     """
-    Generate answer using Azure OpenAI
+    Generate structured table/chart response using Azure OpenAI
     
     Args:
         query: User's question
         context: Retrieved context from vector DB
     
     Returns:
-        Generated answer from LLM
+        Dict with IS_TABLEVIEW/IS_CHARTVIEW structure
     """
     provider = get_llm_provider()
     if not provider:
-        return "Error: Azure OpenAI is not available. Please verify your Azure OpenAI configuration."
+        return {"error": "Azure OpenAI not available"}
     
-    system_message = """You are a helpful AI assistant. Use the provided context to answer the user's question accurately. 
-If the context doesn't contain relevant information, say so clearly."""
+    # Detect if chart request (case-insensitive)
+    query_lower = query.lower()
+    chart_keywords = ["chart", "graph", "visual", "plot", "bar", "line", "pie", "visualize", "diagram", "representation", "chart view"]
+    is_chart_request = any(keyword in query_lower for keyword in chart_keywords)
     
-    prompt = f"""Context:
+    instruction = "IS_CHARTVIEW" if is_chart_request else "IS_TABLEVIEW"
+    
+    system_message = f"""You are a data analyst AI. ALWAYS respond in VALID JSON format with EXACTLY one of these structures:
+
+TABLE (DEFAULT):
+{{"IS_TABLEVIEW": true, "columns": ["Col1", "Col2"], "data": [["val1", "val2"], ["val3", "val4"]], "summary": "brief summary"}}
+
+CHART:
+{{"IS_CHARTVIEW": true, "x_axis": "X label", "y_axis": "Y label", "data": [["X1", Y1], ["X2", Y2]], "chart_type": "bar/line/pie", "summary": "brief summary"}}
+
+RULES (MANDATORY):
+1. List ALL relevant data from context - NO "top 3", "first few", list EVERYTHING
+2. ONLY use data from context provided
+3. If no data, use empty arrays and note in summary
+4. Columns/data must match context exactly
+5. Chart data as list of [x_value, y_value] pairs
+6. Use short, clear column names
+7. Summary: 1-2 sentences explaining insights
+
+Context:
 {context}
 
-User's Question: {query}
+Query: {query}
 
-Please provide a clear and concise answer based on the context."""
+Respond ONLY with the JSON object - no other text."""
 
     try:
         response = provider.generate(
-            prompt=prompt,
+            prompt=query,  # Query already in system
             system_message=system_message,
-            temperature=0.7,
-            max_tokens=2048
+            temperature=0.1  # Low for consistency
         )
         return response
     except Exception as e:
         print(f"Error generating response: {str(e)}")
-        return f"Sorry, I couldn't generate a response. Error: {str(e)}"
+        return {"error": str(e)}
 
 def generate_system_prompt(documents_summary: str) -> str:
     """Generate a system prompt based on available documents"""

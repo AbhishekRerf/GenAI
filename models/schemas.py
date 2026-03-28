@@ -135,24 +135,32 @@ class ChatQuery(BaseModel):
             }
         }
 
+class StructuredResponse(BaseModel):
+    """Structured LLM response for table/chart"""
+    IS_TABLEVIEW: Optional[bool] = None
+    IS_CHARTVIEW: Optional[bool] = None
+    columns: Optional[List[str]] = None
+    data: Optional[List[List[str]]] = None
+    x_axis: Optional[str] = None
+    y_axis: Optional[str] = None
+    chart_type: Optional[str] = "bar"
+    summary: Optional[str] = None
+
 class ChatResponse(BaseModel):
-    """API Response with Retrieved Documents and Generated Answer"""
-    answer: str
-    sources: List[dict]
+    """API Response - structured answer only (sources removed)"""
+    answer: dict  # Structured table/chart JSON
     session_id: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     
     class Config:
         json_schema_extra = {
             "example": {
-                "answer": "To learn Python, start with basics...",
-                "sources": [
-                    {
-                        "title": "Python Basics",
-                        "content": "...",
-                        "similarity": 0.95
-                    }
-                ],
+                "answer": {
+                    "IS_TABLEVIEW": True,
+                    "columns": ["Name", "Skills"],
+                    "data": [["John", "Python"]]
+                },
+                "sources": [],
                 "session_id": "user123"
             }
         }

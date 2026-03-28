@@ -206,12 +206,11 @@ USER QUERY: {query}
         # Step 2: Build RAG prompts
         system_message, user_prompt = self._build_rag_prompt(query, search_results)
         
-        # Step 3: Generate with LLM
+        # Step 3: Generate structured response with LLM
         response = self.llm_provider.generate(
             prompt=user_prompt,
             system_message=system_message,
-            temperature=temperature,
-            max_tokens=2048  # Fixed for Azure stability
+            temperature=temperature
         )
         
         elapsed = (datetime.now() - start_time).total_seconds()
@@ -226,7 +225,7 @@ USER QUERY: {query}
         # Build result
         result = {
             "query": query,
-            "response": response,
+            "structured_response": response,  # Now JSON dict with IS_TABLEVIEW/IS_CHARTVIEW
             "llm_provider": self.llm_provider.name,
             "retrieval_stats": {
                 "resources_found": len(search_results.get("resources", [])),

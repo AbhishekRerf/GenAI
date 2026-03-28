@@ -4,7 +4,7 @@ from utils.llm import generate_answer
 from typing import List, Dict
 import os
 
-async def retrieve_relevant_documents(query: str, top_k: int = 3) -> List[Dict]:
+async def retrieve_relevant_documents(query: str, top_k: int = 5) -> List[Dict]:
     """
     Retrieve relevant documents from all Chroma collections using semantic search
     
@@ -54,9 +54,9 @@ async def retrieve_relevant_documents(query: str, top_k: int = 3) -> List[Dict]:
     all_documents.sort(key=lambda x: x['similarity'], reverse=True)
     return all_documents[:top_k]
 
-async def rag_query(user_query: str, top_k: int = 3) -> Dict:
+async def rag_query(user_query: str, top_k: int = 5) -> Dict:  # Increased for more data
     """
-    Full RAG pipeline: retrieve documents and generate answer
+    Full RAG pipeline: retrieve documents and generate structured answer
     
     Args:
         user_query: User's question
@@ -72,7 +72,7 @@ async def rag_query(user_query: str, top_k: int = 3) -> Dict:
     context = "\n\n".join([doc['content'] for doc in relevant_docs])
     
     if not context.strip():
-        context = "No relevant documents found in the knowledge base."
+        context = "No relevant documents found."
     
     # Generate answer using LLM
     answer = generate_answer(user_query, context)

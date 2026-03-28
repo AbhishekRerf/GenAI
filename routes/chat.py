@@ -22,8 +22,7 @@ async def chat_query(request: ChatQuery):
         result = await rag_query(request.message)
         
         response = ChatResponse(
-            answer=result['answer'],
-            sources=result['sources'],
+            answer=result['answer'],  # Structured table/chart JSON
             session_id=session_id
         )
         

@@ -37,9 +37,10 @@ class RAGQuery(BaseModel):
 
 
 class RAGResponse(BaseModel):
-    """RAG response"""
+    """RAG response - now structured"""
     query: str
-    response: str
+    structured_response: Optional[dict] = None
+    response: Optional[str] = None  # Fallback
     llm_provider: str
     retrieval_stats: dict
     performance: dict
