@@ -283,7 +283,7 @@ USER QUERY: {query}
             Response text
         """
         result = self.generate(query, collection_type, return_context=return_context)
-        return result["response"]
+        return result.get("structured_response", "No response generated")
     
     
     def get_history(self) -> List[Dict[str, Any]]:

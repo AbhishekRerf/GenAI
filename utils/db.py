@@ -47,6 +47,13 @@ async def get_mongodb():
         raise Exception("MongoDB is not connected. Start MongoDB or set MONGODB_URI environment variable.")
     return mongodb
 
+async def close_mongodb():
+    """Close MongoDB connection"""
+    global mongodb_client
+    if mongodb_client:
+        mongodb_client.close()
+        print("MongoDB connection closed")
+
 def init_chroma():
     """Initialize Chroma Vector DB"""
     global chroma_client, embedding_model
@@ -82,9 +89,3 @@ def get_embedding_model():
     if not embedding_model:
         init_chroma()
     return embedding_model
-
-async def close_mongodb():
-    """Close MongoDB connection"""
-    if mongodb_client:
-        mongodb_client.close()
-        print("MongoDB connection closed")

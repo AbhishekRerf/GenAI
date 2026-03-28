@@ -3,9 +3,12 @@ Semantic search on chunked embeddings
 Search across chunks and aggregate results intelligently
 """
 from typing import List, Dict, Any, Optional
+import os
+from dotenv import load_dotenv
 import chromadb
 from sentence_transformers import SentenceTransformer
 
+load_dotenv()
 
 class ChunkedVectorSearch:
     """Search functionality for chunked embeddings"""
@@ -14,7 +17,7 @@ class ChunkedVectorSearch:
     _client = None
     _embedder = None
     
-    VECTOR_DB_PATH = "./chroma_db_chunked"
+    VECTOR_DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_db")
     EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
     
     @classmethod

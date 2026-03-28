@@ -1,0 +1,77 @@
+[
+  {
+    "prompt": "Find all senior developers",
+    "mongo_query": {"resource_type": "developer", "skill_level": "senior"}
+  },
+  {
+    "prompt": "Show active resources with Python skills",
+    "mongo_query": {"is_active": true, "skills": {"$in": ["Python"]}}
+  },
+  {
+    "prompt": "Projects in progress with budget over $100k",
+    "mongo_query": {"status": "in_progress", "budget": {"$gt": 100000}}
+  },
+  {
+    "prompt": "DevOps experts hourly rate > $100",
+    "mongo_query": {"resource_type": "devops", "skill_level": "expert", "hourly_rate": {"$gt": 100}}
+  },
+  {
+    "prompt": "Assignments for project proj_004084",
+    "mongo_query": {"project_id": "proj_004084"}
+  },
+  {
+    "prompt": "Join: Resources assigned to E-Commerce projects",
+    "mongo_query": [
+      {"$lookup": {
+        "from": "assignments",
+        "localField": "_id",
+        "foreignField": "resource_id",
+        "as": "assignments"
+      }},
+      {"$unwind": "$assignments"},
+      {"$lookup": {
+        "from": "projects",
+        "localField": "assignments.project_id",
+        "foreignField": "_id",
+        "as": "project"
+      }},
+      {"$match": {"project.0.name": {"$regex": "E-Commerce", "$options": "i"}}},
+      {"$project": {"name": 1, "skills": 1, "project": {"$arrayElemAt": ["$project", 0]}}}
+    ]
+  },
+  {
+    "prompt": "Count resources by department",
+    "mongo_query": [
+      {"$group": {"_id": "$department", "count": {"$sum": 1}}}
+    ]
+  },
+  {
+    "prompt": "Average hourly rate by skill level",
+    "mongo_query": [
+      {"$group": {"_id": "$skill_level", "avg_rate": {"$avg": "$hourly_rate"}}}
+    ]
+  },
+  {
+    "prompt": "Top 5 expensive projects by budget",
+    "mongo_query": [
+      {"$sort": {"budget": -1}},
+      {"$limit": 5}
+    ]
+  },
+  {
+    "prompt": "Resources with AWS and Docker skills",
+    "mongo_query": {"skills": {"$all": ["AWS", "Docker"]}}
+  },
+  {
+    "prompt": "Project manager assignments allocation >75%",
+    "mongo_query": [
+      {"$lookup": {
+        "from": "resources",
+        "localField": "resource_id",
+        "foreignField": "_id",
+        "as": "resource"
+      }},
+      {"$match": {"resource.0.resource_type": "project_manager", "allocation_percentage": {"$gt": 75}}}
+    ]
+  }
+]
