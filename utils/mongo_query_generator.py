@@ -203,17 +203,30 @@ USER REQUEST: {user_prompt}
 
 Collection(s) available: {collection_type}
 
-IMPORTANT RULES:
+QUERY FORMAT RULES:
+1. **FIND QUERY** (use dict format for simple filtering): {{"field": "value", "field2": {{"$gt": 100}}}}
+   Examples: Find, Filter, Show, Get, List [with keywords like active, senior, name, etc]
+
+2. **AGGREGATION PIPELINE** (use list format for transforms/grouping/sorting): [{{"$match": {{...}}}}, {{"$group": {{...}}}}, {{"$sort": {{...}}}}]
+   Examples: Count, Group, Sum, Average, Sort, Top N, Join/Relationship queries
+
+CRITICAL RULES:
 1. Output ONLY the MongoDB query as valid JSON - no explanations
-2. For simple filters, use: {{"field": "value"}} or {{"field": {{"$operator": "value"}}}}
-3. For joins/complex queries, use aggregation pipeline: [{{"$match": {{...}}}}, {{"$lookup": {{...}}}}, ...]
-4. Use $lookup for relationships between collections
-5. Make sure the query is valid and executable
-6. If collection_type is 'all', include lookups to join relevant collections
+2. Check the REQUEST keywords FIRST:
+   - Keywords: "count", "group", "sum", "average", "total", "top", "sort", "by", "relationship", "join" → USE AGGREGATION PIPELINE (LIST format)
+   - Keywords: "show", "list", "find", "get", "filter" → USE FIND QUERY (DICT format)
+3. For aggregation: Always return as ARRAY: [{{"$stage1": ...}}, {{"$stage2": ...}}]
+4. For find: Always return as OBJECT: {{"field": "value"}}
+5. Never mix $group, $sort, $limit at the top level with find queries
+6. Use $lookup for relationships between collections
 
 Return ONLY the JSON query, nothing else:"""
 
-    system_message = "You are a MongoDB query generator. Respond with ONLY valid JSON MongoDB queries."
+    system_message = """You are a MongoDB query generator expert.
+CRITICAL: 
+- If request has words like "count", "group", "sum", "average", "total", "top", "sort", "by" → Generate AGGREGATION PIPELINE as a LIST: [{...}, {...}]
+- For simple filtering ("show", "find", "list", "get") → Generate FIND QUERY as a DICT: {...}
+- Respond with ONLY valid JSON MongoDB queries, no explanations or markdown."""
     
     # Log what we're sending to Azure
     log_llm_request(
@@ -305,6 +318,198 @@ Return ONLY the JSON query, nothing else:"""
         raise
 
 
+def make_query_case_insensitive(query: Union[Dict, List]) -> Union[Dict, List]:
+    """
+    Convert string comparisons to case-insensitive regex patterns
+    
+    Converts:
+    - {"skills": {"$in": ["docker"]}} → {"skills": {"$regex": "^docker$", "$options": "i"}} (single)
+    - {"skills": {"$in": ["docker", "python"]}} → {"$or": [{"skills": {"$regex": "^docker$", "$options": "i"}}, {"skills": {"$regex": "^python$", "$options": "i"}}]} (multiple)
+    - {"name": "john"} → {"name": {"$regex": "^john$", "$options": "i"}}
+    
+    Important:
+    - MongoDB $in operator CANNOT contain regex objects
+    - So we convert $in with strings to $or with $regex (for multiple values)
+    - For single values, we just convert to $regex directly
+    - This handles skills array matching (Docker vs docker)
+    """
+    
+    def convert_value(value):
+        """Convert a single value to case-insensitive pattern"""
+        if isinstance(value, str):
+            return {"$regex": f"^{value}$", "$options": "i"}
+        return value
+    
+    def convert_dict(obj):
+        """Recursively convert dict values to case-insensitive patterns"""
+        if not isinstance(obj, dict):
+            return obj
+        
+        result = {}
+        for key, value in obj.items():
+            # Skip MongoDB operators at this level
+            if key.startswith("$"):
+                result[key] = value
+                continue
+            
+            # Handle $in operator - convert to $or with $regex (MongoDB limitation)
+            # MongoDB $in cannot contain regex objects
+            if isinstance(value, dict) and "$in" in value:
+                in_list = value["$in"]
+                has_strings = any(isinstance(item, str) for item in in_list)
+                
+                if has_strings and len(in_list) > 0:
+                    # Convert to $or with $regex patterns for strings
+                    or_conditions = []
+                    for item in in_list:
+                        if isinstance(item, str):
+                            # Create $regex condition for this field
+                            or_conditions.append({
+                                key: convert_value(item)
+                            })
+                        else:
+                            # Keep non-string items as-is (numeric, boolean, etc)
+                            or_conditions.append({key: {"$in": [item]}})
+                    
+                    # Map to be returned for post-processing
+                    # We need to mark this for top-level $or construction
+                    result[f"__OR_MARKER_{key}__"] = or_conditions
+                else:
+                    # No strings, keep as-is
+                    result[key] = value
+                continue
+            
+            # Handle $eq operator - make string case-insensitive
+            if isinstance(value, dict) and "$eq" in value:
+                if isinstance(value["$eq"], str):
+                    result[key] = convert_value(value["$eq"])
+                else:
+                    result[key] = value
+                continue
+            
+            # Handle direct string values - make case-insensitive
+            if isinstance(value, str):
+                result[key] = convert_value(value)
+                continue
+            
+            # Recursively handle nested dicts
+            if isinstance(value, dict):
+                result[key] = convert_dict(value)
+                continue
+            
+            # Handle arrays
+            if isinstance(value, list):
+                result[key] = [convert_dict(item) if isinstance(item, dict) else item for item in value]
+                continue
+            
+            result[key] = value
+        
+        return result
+    
+    if isinstance(query, dict):
+        converted = convert_dict(query)
+        
+        # Handle $or marker conversions at top level
+        or_markers = [(k, v) for k, v in converted.items() if k.startswith("__OR_MARKER_")]
+        
+        if or_markers:
+            # Extract the original field name and or_conditions
+            all_or_conditions = []
+            final_query = {}
+            
+            for marker_key, or_conditions in or_markers:
+                # Extract field name from marker: __OR_MARKER_fieldname__ → fieldname
+                field_name = marker_key.replace("__OR_MARKER_", "").replace("__", "")
+                all_or_conditions.extend(or_conditions)
+            
+            # Add non-marker items to final query
+            for key, value in converted.items():
+                if not key.startswith("__OR_MARKER_"):
+                    final_query[key] = value
+            
+            # Add $or conditions
+            if all_or_conditions:
+                if len(all_or_conditions) == 1:
+                    # Single condition - merge it with other conditions
+                    final_query.update(all_or_conditions[0])
+                else:
+                    # Multiple conditions - use $or
+                    final_query["$or"] = all_or_conditions
+            
+            return final_query
+        
+        return converted
+    elif isinstance(query, list):
+        # For aggregation pipelines, process each stage
+        return [convert_dict(stage) if isinstance(stage, dict) else stage for stage in query]
+    else:
+        return query
+
+
+def validate_mongo_query(query: Union[Dict, List]) -> tuple[bool, str]:
+    """
+    Validate MongoDB query syntax before execution
+    
+    Returns:
+        (is_valid: bool, error_message: str)
+    """
+    
+    def validate_dict(obj, path=""):
+        """Recursively validate query dict"""
+        if not isinstance(obj, dict):
+            return True, ""
+        
+        for key, value in obj.items():
+            current_path = f"{path}.{key}" if path else key
+            
+            # Check for invalid nesting
+            if key == "$in" and isinstance(value, list):
+                for item in value:
+                    # $in should NOT contain objects with $ operators
+                    if isinstance(item, dict):
+                        for sub_key in item.keys():
+                            if sub_key.startswith("$"):
+                                return False, f"Invalid: Cannot nest operator '{sub_key}' inside '$in' at {current_path}. Use '$or' instead."
+            
+            # Check $or operator
+            if key == "$or" and isinstance(value, list):
+                for or_clause in value:
+                    if isinstance(or_clause, dict):
+                        valid, msg = validate_dict(or_clause, current_path)
+                        if not valid:
+                            return False, msg
+            
+            # Recursively validate nested dicts
+            if isinstance(value, dict):
+                valid, msg = validate_dict(value, current_path)
+                if not valid:
+                    return False, msg
+            
+            # Recursively validate array items
+            if isinstance(value, list) and key != "$in" and key != "$or":
+                for item in value:
+                    if isinstance(item, dict):
+                        valid, msg = validate_dict(item, current_path)
+                        if not valid:
+                            return False, msg
+        
+        return True, ""
+    
+    if isinstance(query, dict):
+        return validate_dict(query)
+    elif isinstance(query, list):
+        # Aggregation pipeline
+        for i, stage in enumerate(query):
+            if isinstance(stage, dict):
+                valid, msg = validate_dict(stage, f"Stage[{i}]")
+                if not valid:
+                    return False, msg
+        return True, ""
+    
+    return True, ""
+
+
+
 async def execute_mongo_query(
     query: Union[Dict, List],
     collection_type: str = "resources",
@@ -341,6 +546,51 @@ async def execute_mongo_query(
             collection = db[collection_type]
         
         logger.debug(f"Collection selected: {collection.name if hasattr(collection, 'name') else collection_type}")
+        
+        # Check if dict has aggregation operators at top level
+        # If it does, convert to aggregation pipeline
+        initial_query_type = "list" if isinstance(query, list) else "dict"
+        logger.debug(f"Initial query type: {initial_query_type}")
+        logger.debug(f"Initial query: {json.dumps(query, indent=2) if isinstance(query, (dict, list)) else str(query)}")
+        
+        if isinstance(query, dict):
+            aggregation_operators = {"$group", "$sort", "$limit", "$project", "$unwind", "$lookup", "$match", "$skip"}
+            top_level_keys = set(query.keys())
+            logger.debug(f"Top-level keys in dict: {top_level_keys}")
+            
+            has_agg_ops = bool(aggregation_operators & top_level_keys)
+            logger.debug(f"Has aggregation operators: {has_agg_ops}")
+            
+            if has_agg_ops:
+                # Convert dict with agg operators to pipeline format
+                logger.info(f"🔄 Converting aggregation dict to pipeline format")
+                logger.debug(f"Detected aggregation operators: {aggregation_operators & top_level_keys}")
+                # If it's a single aggregation stage in dict, wrap it
+                query = [query]
+                logger.info(f"✅ Converted to aggregation pipeline with {len(query)} stage(s)")
+                logger.debug(f"Converted pipeline: {json.dumps(query, indent=2)}")
+        
+        # ========== CASE-INSENSITIVE CONVERSION ==========
+        # Convert string comparisons to case-insensitive regexes
+        # This handles skills like "docker" vs "Docker" in database
+        original_query = query
+        query = make_query_case_insensitive(query)
+        
+        if str(original_query) != str(query):
+            logger.info(f"🔤 Converted to case-insensitive query")
+            logger.debug(f"Original query: {json.dumps(original_query, indent=2) if isinstance(original_query, (dict, list)) else str(original_query)}")
+            logger.debug(f"Case-insensitive query: {json.dumps(query, indent=2) if isinstance(query, (dict, list)) else str(query)}")
+        
+        # ========== QUERY VALIDATION ==========
+        # Validate query syntax before execution
+        is_valid, error_msg = validate_mongo_query(query)
+        if not is_valid:
+            error_message = f"Query Validation Error: {error_msg}"
+            logger.error(f"🚫 {error_message}")
+            logger.error(f"Query: {json.dumps(query, indent=2) if isinstance(query, (dict, list)) else str(query)}")
+            raise ValueError(error_message)
+        
+        logger.info(f"✅ Query validation passed")
         
         # Execute query
         results = []
@@ -698,44 +948,4 @@ async def generate_structured_response(
         )
         
         return response
-
-
-async def validate_mongo_query(query: Union[Dict, List]) -> bool:
-    """
-    Validate MongoDB query syntax
-    
-    Args:
-        query: MongoDB query to validate
-        
-    Returns:
-        True if valid, False otherwise
-    """
-    try:
-        if isinstance(query, dict):
-            # Basic dict validation
-            return len(query) > 0
-        
-        if isinstance(query, list):
-            # Validate aggregation pipeline stages
-            allowed_stages = [
-                '$match', '$project', '$lookup', '$group', '$sort',
-                '$limit', '$skip', '$unwind', '$addFields', '$count',
-                '$out', '$merge', '$replaceRoot', '$facet'
-            ]
-            
-            for stage in query:
-                if not isinstance(stage, dict):
-                    return False
-                
-                stage_keys = list(stage.keys())
-                if not any(key.startswith('$') for key in stage_keys):
-                    return False
-            
-            return True
-        
-        return False
-        
-    except Exception as e:
-        logger.warning(f"Query validation error: {str(e)}")
-        return False
 
