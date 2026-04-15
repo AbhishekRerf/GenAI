@@ -1,0 +1,334 @@
+[
+  {
+    "prompt": "Find all senior developers",
+    "mongo_query": {"resource_type": "developer", "skill_level": "senior"}
+  },
+  {
+    "prompt": "Show active resources with Python skills",
+    "mongo_query": {"is_active": true, "skills": {"$in": ["Python"]}}
+  },
+  {
+    "prompt": "Find resources with Docker skills",
+    "mongo_query": {"skills": {"$in": ["Docker"]}}
+  },
+  {
+    "prompt": "Find all resources who have AWS experience",
+    "mongo_query": {"skills": {"$in": ["AWS"]}}
+  },
+  {
+    "prompt": "Show resources with React expertise",
+    "mongo_query": {"skills": {"$in": ["React"]}}
+  },
+  {
+    "prompt": "Find QA engineers",
+    "mongo_query": {"resource_type": "QA"}
+  },
+  {
+    "prompt": "Find resources with skills in agile",
+    "mongo_query": {"skills": {"$in": ["Agile"]}}
+  },
+  {
+    "prompt": "Assignments for project proj_004084",
+    "mongo_query": {"project_id": "proj_004084"}
+  },
+  {
+    "prompt": "Join: Resources assigned to E-Commerce projects",
+    "mongo_query": [
+      {"$lookup": {
+        "from": "assignments",
+        "localField": "_id",
+        "foreignField": "resource_id",
+        "as": "assignments"
+      }},
+      {"$unwind": "$assignments"},
+      {"$lookup": {
+        "from": "projects",
+        "localField": "assignments.project_id",
+        "foreignField": "_id",
+        "as": "project"
+      }},
+      {"$match": {"project.0.name": {"$regex": "E-Commerce", "$options": "i"}}},
+      {"$project": {"name": 1, "skills": 1, "project": {"$arrayElemAt": ["$project", 0]}}}
+    ]
+  },
+  {
+    "prompt": "Count resources by department",
+    "mongo_query": [
+      {"$group": {"_id": "$department", "count": {"$sum": 1}}},
+      {"$sort": {"count": -1}}
+    ]
+  },
+  {
+    "prompt": "Average hourly rate by skill level",
+    "mongo_query": [
+      {"$match": {"is_active": true}},
+      {"$group": {"_id": "$skill_level", "avg_rate": {"$avg": "$hourly_rate"}}},
+      {"$sort": {"avg_rate": -1}}
+    ]
+  },
+  {
+    "prompt": "Top 5 expensive projects by budget",
+    "mongo_query": [
+      {"$match": {"status": {"$in": ["in_progress", "planning"]}}},
+      {"$sort": {"budget": -1}},
+      {"$limit": 5}
+    ]
+  },
+  {
+    "prompt": "Group senior developers by skills",
+    "mongo_query": [
+      {"$match": {"resource_type": "developer", "skill_level": "senior"}},
+      {"$unwind": "$skills"},
+      {"$group": {"_id": "$skills", "count": {"$sum": 1}, "developers": {"$push": "$name"}}},
+      {"$sort": {"count": -1}}
+    ]
+  },
+  {
+    "prompt": "Resources with AWS and Docker skills",
+    "mongo_query": {"skills": {"$all": ["AWS", "Docker"]}}
+  },
+  {
+    "prompt": "Project manager assignments allocation >75%",
+    "mongo_query": [
+      {"$lookup": {
+        "from": "resources",
+        "localField": "resource_id",
+        "foreignField": "_id",
+        "as": "resource"
+      }},
+      {"$match": {"resource.0.resource_type": "project_manager", "allocation_percentage": {"$gt": 75}}}
+    ]
+  },
+  {
+    "prompt": "Find backend developers with 5+ years experience",
+    "mongo_query": {"resource_type": "developer", "experience_years": {"$gte": 5}, "specialization": "backend"}
+  },
+  {
+    "prompt": "Show all Java and JavaScript developers",
+    "mongo_query": {"skills": {"$in": ["Java", "JavaScript"]}}
+  },
+  {
+    "prompt": "Find resources from New York office",
+    "mongo_query": {"office_location": "New York", "is_active": true}
+  },
+  {
+    "prompt": "Get QA engineers with automation certifications",
+    "mongo_query": {"resource_type": "QA", "certifications": {"$regex": "automation", "$options": "i"}}
+  },
+  {
+    "prompt": "Find projects with client name Acme Corp",
+    "mongo_query": {"client_name": "Acme Corp", "status": {"$ne": "cancelled"}}
+  },
+  {
+    "prompt": "Show resources available next month",
+    "mongo_query": {"availability_date": {"$lte": "2024-04-30"}, "is_active": true}
+  },
+  {
+    "prompt": "Find junior developers with React skills",
+    "mongo_query": {"resource_type": "developer", "skill_level": "junior", "skills": {"$in": ["React"]}}
+  },
+  {
+    "prompt": "Get resources by location London and Paris",
+    "mongo_query": {"office_location": {"$in": ["London", "Paris"]}}
+  },
+  {
+    "prompt": "Find mid-level backend developers",
+    "mongo_query": {"resource_type": "developer", "skill_level": "mid-level", "specialization": "backend"}
+  },
+  {
+    "prompt": "Show all UI/UX designers",
+    "mongo_query": {"resource_type": "designer", "specialization": "UI/UX"}
+  },
+  {
+    "prompt": "Find projects completed in last 3 months",
+    "mongo_query": {"status": "completed", "completion_date": {"$gte": "2023-12-30"}}
+  },
+  {
+    "prompt": "Get resources with billing rate $150 or higher",
+    "mongo_query": {"billing_rate": {"$gte": 150}}
+  },
+  {
+    "prompt": "Find consultants with 10+ years experience",
+    "mongo_query": {"resource_type": "consultant", "experience_years": {"$gte": 10}}
+  },
+  {
+    "prompt": "Show resources with security clearances",
+    "mongo_query": {"has_security_clearance": true}
+  },
+  {
+    "prompt": "Find database administrators with PostgreSQL",
+    "mongo_query": {"resource_type": "DBA", "skills": {"$in": ["PostgreSQL"]}}
+  },
+  {
+    "prompt": "Get all cloud engineers",
+    "mongo_query": {"specialization": "cloud_engineering"}
+  },
+  {
+    "prompt": "Find resources allocated to healthcare projects",
+    "mongo_query": {"assigned_sectors": {"$in": ["healthcare"]}}
+  },
+  {
+    "prompt": "Show team leads across all departments",
+    "mongo_query": {"role": "team_lead"}
+  },
+  {
+    "prompt": "Find contractors with fixed price models",
+    "mongo_query": {"contract_type": "contractor", "pricing_model": "fixed_price"}
+  },
+  {
+    "prompt": "Count developers by skill level",
+    "mongo_query": [
+      {"$match": {"resource_type": "developer"}},
+      {"$group": {"_id": "$skill_level", "count": {"$sum": 1}}},
+      {"$sort": {"count": -1}}
+    ]
+  },
+  {
+    "prompt": "Calculate total budget by project status",
+    "mongo_query": [
+      {"$group": {"_id": "$status", "total_budget": {"$sum": "$budget"}}},
+      {"$sort": {"total_budget": -1}}
+    ]
+  },
+  {
+    "prompt": "List top 10 most expensive resources by hourly rate",
+    "mongo_query": [
+      {"$match": {"is_active": true}},
+      {"$sort": {"hourly_rate": -1}},
+      {"$limit": 10},
+      {"$project": {"name": 1, "hourly_rate": 1, "resource_type": 1}}
+    ]
+  },
+  {
+    "prompt": "Average project duration by status",
+    "mongo_query": [
+      {"$group": {"_id": "$status", "avg_end": {"$avg": "$end_date"}}},
+      {"$sort": {"avg_end": -1}}
+    ]
+  },
+  {
+    "prompt": "Count resources by office location with active status",
+    "mongo_query": [
+      {"$match": {"is_active": true}},
+      {"$group": {"_id": "$office_location", "count": {"$sum": 1}, "resources": {"$push": "$name"}}},
+      {"$sort": {"count": -1}}
+    ]
+  },
+  {
+    "prompt": "Find specializations with highest average salary",
+    "mongo_query": [
+      {"$group": {"_id": "$specialization", "avg_salary": {"$avg": "$salary"}, "count": {"$sum": 1}}},
+      {"$match": {"count": {"$gte": 3}}},
+      {"$sort": {"avg_salary": -1}}
+    ]
+  },
+  {
+    "prompt": "Group resources by skill and count occurrences",
+    "mongo_query": [
+      {"$unwind": "$skills"},
+      {"$group": {"_id": "$skills", "resource_count": {"$sum": 1}}},
+      {"$sort": {"resource_count": -1}},
+      {"$limit": 20}
+    ]
+  },
+  {
+    "prompt": "Projects with most allocated resources",
+    "mongo_query": [
+      {"$lookup": {
+        "from": "assignments",
+        "localField": "_id",
+        "foreignField": "project_id",
+        "as": "assignments"
+      }},
+      {"$project": {"name": 1, "resource_count": {"$size": "$assignments"}}},
+      {"$sort": {"resource_count": -1}},
+      {"$limit": 10}
+    ]
+  },
+  {
+    "prompt": "Find resources who worked on multiple projects",
+    "mongo_query": [
+      {"$lookup": {
+        "from": "assignments",
+        "localField": "_id",
+        "foreignField": "resource_id",
+        "as": "assignments"
+      }},
+      {"$project": {"name": 1, "project_count": {"$size": "$assignments"}}},
+      {"$match": {"project_count": {"$gte": 2}}}
+    ]
+  },
+  {
+    "prompt": "Total allocation percentage per resource",
+    "mongo_query": [
+      {"$lookup": {
+        "from": "assignments",
+        "localField": "_id",
+        "foreignField": "resource_id",
+        "as": "assignments"
+      }},
+      {"$addFields": {"total_allocation": {"$sum": "$assignments.allocation_percentage"}}},
+      {"$match": {"total_allocation": {"$gt": 0}}}
+    ]
+  },
+  {
+    "prompt": "Skills distribution across experience levels",
+    "mongo_query": [
+      {"$unwind": "$skills"},
+      {"$group": {"_id": {"skill": "$skills", "level": "$skill_level"}, "count": {"$sum": 1}}},
+      {"$sort": {"count": -1}}
+    ]
+  },
+  {
+    "prompt": "Resources never assigned to projects this year",
+    "mongo_query": [
+      {"$lookup": {
+        "from": "assignments",
+        "localField": "_id",
+        "foreignField": "resource_id",
+        "as": "assignments"
+      }},
+      {"$match": {"assignments": {"$size": 0}}}
+    ]
+  },
+  {
+    "prompt": "Find high utilization resources (>80% allocation)",
+    "mongo_query": [
+      {"$lookup": {
+        "from": "assignments",
+        "localField": "_id",
+        "foreignField": "resource_id",
+        "as": "assignments"
+      }},
+      {"$addFields": {"total_allocation": {"$sum": "$assignments.allocation_percentage"}}},
+      {"$match": {"total_allocation": {"$gte": 80}}}
+    ]
+  },
+  {
+    "prompt": "Average project duration by department",
+    "mongo_query": [
+      {"$group": {"_id": "$department", "avg_end_date": {"$avg": "$end_date"}}},
+      {"$sort": {"avg_end_date": -1}}
+    ]
+  },
+  {
+    "prompt": "List all junior developers with least 2 years experience",
+    "mongo_query": {"resource_type": "developer", "skill_level": "junior", "experience_years": {"$gte": 2}}
+  },
+  {
+    "prompt": "Find resources with certifications in cloud platforms",
+    "mongo_query": {"certifications": {"$regex": "AWS|Azure|GCP", "$options": "i"}}
+  },
+  {
+    "prompt": "Get currently available resources without active assignments",
+    "mongo_query": {"is_active": true, "current_allocation_percentage": {"$lt": 50}}
+  },
+  {
+    "prompt": "Show offshore development team members",
+    "mongo_query": {"office_location": {"$in": ["India", "Philippines", "Romania", "Ukraine"]}}
+  },
+  {
+    "prompt": "Find legacy system specialists with COBOL skills",
+    "mongo_query": {"skills": {"$in": ["COBOL", "Mainframe"]}}
+  }
+]
